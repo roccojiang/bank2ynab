@@ -446,8 +446,8 @@ class TestDataframeHandler(TestCase):
         ]
         really_long_payee = "a" * 60
         truncated_payee = really_long_payee[:50]
-        really_long_memo = "m" * 200
-        truncated_memo = really_long_memo[:100]
+        really_long_memo = "m" * 500
+        truncated_memo = really_long_memo[:200]
         initial_df = pd.DataFrame(
             {
                 "account_id": ["", "", "", ""],
