@@ -23,10 +23,10 @@ class HsbcHkCreditCardPlugin(BankHandler):
         "post_date",
         "trans_date",
         "payee",
-        "address",
+        "location",
         "country",
-        "foreign_currency",
-        "foreign_currency_amount",
+        "original_currency",
+        "original_amount",
         "hkd_amount",
     ]
 
@@ -84,11 +84,13 @@ class HsbcHkCreditCardPlugin(BankHandler):
         """
         pdf = pdfplumber.open(pdf_path)
 
+        logging.info("\tExtracting tables and the statement date.")
         tables, statement_date = self.extract_tables_and_statement_date(
             pdf, table_cols
         )
-        flattened_table = self.flatten_and_clean_table(tables)
 
+        logging.info("\tCleaning and processing table data.")
+        flattened_table = self.flatten_and_clean_table(tables)
         processed_df = self.convert_and_process_dataframe(
             flattened_table, table_cols, statement_date
         )
@@ -195,7 +197,16 @@ class HsbcHkCreditCardPlugin(BankHandler):
             .reset_index(drop=True)
         )
 
-        df["memo"] = df["payee"].apply(lambda x: "\n".join(x[1:]))
+        df["memo"] = df.apply(
+            lambda x: self.create_memo(
+                x["payee"],
+                x["location"],
+                x["country"],
+                x["original_currency"],
+                x["original_amount"],
+            ),
+            axis=1,
+        )
         df["payee"] = df["payee"].apply(lambda x: x[0])
 
         df[["post_date", "trans_date"]] = df[
@@ -209,6 +220,43 @@ class HsbcHkCreditCardPlugin(BankHandler):
         df["hkd_amount"] = df["hkd_amount"].apply(self.add_sign_to_transaction)
 
         return df
+
+    def create_memo(
+        self,
+        payee_info: list[str],
+        location: str,
+        country: str,
+        original_currency: str,
+        original_amount: str,
+    ) -> str:
+        memo = []
+
+        if location:
+            memo.append(
+                f"Location: {location}" + (f", {country}" if country else "")
+            )
+        elif country:
+            memo.append(f"Country: {country}")
+
+        if original_currency:
+            assert (
+                original_amount
+            ), "A foreign currency symbol exists, but no corresponding amount"
+            memo.append(
+                f"Original amount: {original_amount} {original_currency}"
+            )
+
+        if len(payee_info) > 1:
+            info = ", ".join(x.strip() for x in payee_info[1:])
+            memo.append(f"Details: {info}")
+
+        memo_str = "; ".join(memo)
+        import_info_text = "[Imported from PDF statement]"
+        return (
+            memo_str + " // " + import_info_text
+            if memo_str
+            else import_info_text
+        )
 
     def parse_and_add_year_to_date(
         self,
