@@ -128,7 +128,9 @@ class HsbcHkCreditCardPlugin(BankHandler):
                 tables.append(extracted_page)
 
         if not statement_date_str:
-            logging.warning("Statement date not found, defaulting to using today's date.")
+            logging.warning(
+                "Statement date not found, defaulting to using today's date."
+            )
             statement_date = date.today()
         else:
             statement_date = datetime.strptime(
