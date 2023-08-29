@@ -39,6 +39,7 @@ class DataframeHandler:
         date_dedupe: bool,
         fill_memo: bool,
         currency_fix: float,
+        clean_strs: bool,
     ) -> None:
         """
         Complete handling of Dataframe creation & output.
@@ -91,6 +92,7 @@ class DataframeHandler:
             date_dedupe=date_dedupe,
             fill_memo=fill_memo,
             currency_fix=currency_fix,
+            clean_strs=clean_strs,
         )
         # check if dataframe is empty
         self.empty = self.df.empty
@@ -150,6 +152,7 @@ def parse_data(
     date_dedupe: bool,
     fill_memo: bool,
     currency_fix: float,
+    clean_strs: bool,
 ) -> pd.DataFrame:
     """
     Convert each column of the dataframe to match ideal output data
@@ -195,9 +198,10 @@ def parse_data(
     df = auto_memo(df, fill_memo)
     # auto fill payee from memo
     df = auto_payee(df)
-    # fix strings
-    df["Payee"] = clean_strings(df["Payee"])
-    df["Memo"] = clean_strings(df["Memo"])
+    # fix strings if enabled
+    if clean_strs:
+        df["Payee"] = clean_strings(df["Payee"])
+        df["Memo"] = clean_strings(df["Memo"])
     # remove invalid rows
     df = remove_invalid_rows(df)
     # fill API-specific columns
