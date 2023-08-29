@@ -127,9 +127,13 @@ class HsbcHkCreditCardPlugin(BankHandler):
                     )
                 tables.append(extracted_page)
 
-        statement_date = datetime.strptime(
-            statement_date_str, "%d %b %Y"
-        ).date()
+        if not statement_date_str:
+            logging.warning("Statement date not found, defaulting to using today's date.")
+            statement_date = date.today()
+        else:
+            statement_date = datetime.strptime(
+                statement_date_str, "%d %b %Y"
+            ).date()
 
         return tables, statement_date
 
@@ -162,28 +166,14 @@ class HsbcHkCreditCardPlugin(BankHandler):
         )
         return cleaned_table
 
-    def extract_statement_date_str(self, page) -> str:
-        date_box_areas = page.search("Statement date")
-        if date_box_areas:
-            date_box = date_box_areas[0]
-            return (
-                page.within_bbox(
-                    (
-                        date_box["x0"] - self.STATEMENT_DATE_BOX_LEFT_MARGIN,
-                        date_box["bottom"],
-                        date_box["x1"] + self.STATEMENT_DATE_BOX_RIGHT_MARGIN,
-                        date_box["bottom"] + self.STATEMENT_DATE_BOX_HEIGHT,
-                    )
-                )
-                .extract_text()
-                .strip()
-            )
-        return ""
-
     def convert_and_process_dataframe(
         self, table: Table, table_cols: list[str], statement_date: date
     ) -> pd.DataFrame:
         df = pd.DataFrame(table, columns=table_cols)
+
+        if df.empty:
+            logging.warning("No transactions found in the extracted table.")
+            return df
 
         aggregators: dict[str, Any] = {col: "first" for col in df.columns}
         aggregators["payee"] = list
@@ -220,6 +210,24 @@ class HsbcHkCreditCardPlugin(BankHandler):
         df["hkd_amount"] = df["hkd_amount"].apply(self.add_sign_to_transaction)
 
         return df
+
+    def extract_statement_date_str(self, page) -> str:
+        date_box_areas = page.search("Statement date")
+        if date_box_areas:
+            date_box = date_box_areas[0]
+            return (
+                page.within_bbox(
+                    (
+                        date_box["x0"] - self.STATEMENT_DATE_BOX_LEFT_MARGIN,
+                        date_box["bottom"],
+                        date_box["x1"] + self.STATEMENT_DATE_BOX_RIGHT_MARGIN,
+                        date_box["bottom"] + self.STATEMENT_DATE_BOX_HEIGHT,
+                    )
+                )
+                .extract_text()
+                .strip()
+            )
+        return ""
 
     def create_memo(
         self,
