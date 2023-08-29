@@ -503,7 +503,7 @@ def fill_api_columns(df: pd.DataFrame) -> pd.DataFrame:
     df["account_id"] = ""
     df["date"] = df["Date"].astype(str)
     df["payee_name"] = df["Payee"].str.slice(0, 50)
-    df["memo"] = df["Memo"].str.slice(0, 100)
+    df["memo"] = df["Memo"].str.slice(0, 200)
     df["category"] = ""
     df["cleared"] = "cleared"
     df["payee_id"] = ""
