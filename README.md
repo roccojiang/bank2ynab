@@ -18,15 +18,16 @@ Testing:
 [![Coverage Status](https://codecov.io/gh/bank2ynab/bank2ynab/branch/develop/graph/badge.svg)](https://codecov.io/gh/bank2ynab/bank2ynab)
 [![Maintainability](https://api.codeclimate.com/v1/badges/a9bbb651ef51fc1d9f4f/maintainability)](https://codeclimate.com/github/bank2ynab/bank2ynab/maintainability)
 
-- [What? (Features)](#what)
-  - [Wish List](#wishlist)
-- [Why?](#why)
-- [How?](#how)
-- [Installation Instructions](#install)
-  - [Requirements](#requirements)
-- [User Guide](#userguide)
-- [Known Bugs](#knownbugs)
-- [List of Supported Banks](#formats)
+- [bank2ynab](#bank2ynab)
+  - [What? (Features)](#what-features)
+    - [Wish List](#wish-list)
+  - [Why?](#why)
+  - [How? Contribute!](#how-contribute)
+  - [Installation Instructions](#installation-instructions)
+    - [Requirements](#requirements)
+  - [User Guide](#user-guide)
+  - [Known Bugs](#known-bugs)
+  - [List of Supported Banks](#list-of-supported-banks)
 
 ## <a name="what"></a>What? (Features)
 
@@ -152,7 +153,7 @@ Here is a list of the banks and their formats that we already support. Note that
 1. DK Nordea
 1. DK Portalbank
 1. Hibiscus banking software
-1. HK HSBC Credit Card
+1. HK HSBC credit card
 1. HU Erste Bank checking
 1. HU K&H
 1. HU OTP
