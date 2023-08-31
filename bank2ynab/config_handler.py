@@ -112,6 +112,7 @@ class ConfigHandler:
             "currency_mult": self.get_config_line_flt(
                 section, "Currency Conversion Factor"
             ),
+            "clean_strs": self.get_config_line_boo(section, "Clean Strings"),
         }
 
         # quick n' dirty fix for tabs as delimiters
