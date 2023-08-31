@@ -152,6 +152,7 @@ Here is a list of the banks and their formats that we already support. Note that
 1. DK Nordea
 1. DK Portalbank
 1. Hibiscus banking software
+1. HK HSBC Credit Card
 1. HU Erste Bank checking
 1. HU K&H
 1. HU OTP
