@@ -14,6 +14,10 @@ Table = list[list[str]]
 
 
 class HsbcHkCreditCardPlugin(BankHandler):
+    """
+    Plugin for extracting a CSV table from HSBC Hong Kong credit card statements in PDF format.
+    """
+
     PDFPLUMBER_TABLE_SETTINGS = {
         "horizontal_strategy": "text",
         "explicit_vertical_lines": [260, 330, 350, 380],

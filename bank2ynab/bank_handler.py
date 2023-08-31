@@ -67,7 +67,6 @@ class BankHandler:
                     date_dedupe=self.config_dict["date_dedupe"],
                     fill_memo=self.config_dict["payee_to_memo"],
                     currency_fix=self.config_dict["currency_mult"],
-                    clean_strs=self.config_dict["clean_strs"],
                 )
 
                 self.files_processed += 1
