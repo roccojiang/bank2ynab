@@ -1,16 +1,15 @@
-import itertools
 import logging
 from datetime import date, datetime
-from typing import Any, Optional
+from typing import Optional
 
 import bank_handler
+import numpy as np
 import pandas as pd
 import pdfplumber
 from bank_handler import BankHandler
 from pdfplumber.pdf import PDF
 
-NullableTable = list[list[Optional[str]]]
-Table = list[list[str]]
+Table = list[list[Optional[str]]]
 
 
 class HsbcHkCreditCardPlugin(BankHandler):
@@ -88,21 +87,18 @@ class HsbcHkCreditCardPlugin(BankHandler):
         """
         pdf = pdfplumber.open(pdf_path)
 
-        logging.info("\tExtracting tables and the statement date.")
-        tables, statement_date = self.extract_tables_and_statement_date(
-            pdf, table_cols
-        )
+        logging.info("\tExtracting tables and statement date.")
+        tables, statement_date = self.extract_data(pdf, table_cols)
 
         logging.info("\tCleaning and processing table data.")
-        flattened_table = self.flatten_and_clean_table(tables)
-        processed_df = self.convert_and_process_dataframe(
-            flattened_table, table_cols, statement_date
-        )
+        flattened_table = self.preprocess_table(tables)
+        df = self.convert_to_dataframe(flattened_table, table_cols)
+        processed_df = self.process_dataframe(df, statement_date)
         return processed_df
 
-    def extract_tables_and_statement_date(
+    def extract_data(
         self, pdf: PDF, table_cols: list[str]
-    ) -> tuple[list[NullableTable], date]:
+    ) -> tuple[list[Table], date]:
         statement_date_str = ""
         tables = []
         for page_num, page in enumerate(pdf.pages, start=1):
@@ -143,56 +139,50 @@ class HsbcHkCreditCardPlugin(BankHandler):
 
         return tables, statement_date
 
-    def flatten_and_clean_table(self, table: list[NullableTable]) -> Table:
+    def preprocess_table(self, table: list[Table]) -> Table:
         # Flatten table and drop header row from each page
-        flattened_table = [row for page in table for row in page[1:]]
-        # Replace occurrences of None with empty strings
-        flattened_table = [
-            ["" if cell is None else cell for cell in row]
-            for row in flattened_table
-        ]
-        # Drop rows with all empty cells
-        flattened_table = [
-            row for row in flattened_table if any(cell != "" for cell in row)
-        ]
+        return [row for page in table for row in page[1:]]
 
-        # Drop previous balance info at the beginning of the statement, begin with first transaction
-        cleaned_table = list(
-            itertools.dropwhile(
-                lambda row: row[:2] == ["", ""], flattened_table
-            )
-        )
-        # Drop non-transaction info at the end of the statement
-        cleaned_table = list(
-            itertools.takewhile(
-                lambda row: "*Forcreditcardtransactionseffectedincurrencies"
-                not in "".join(row).replace(" ", ""),
-                cleaned_table,
-            )
-        )
-        return cleaned_table
-
-    def convert_and_process_dataframe(
-        self, table: Table, table_cols: list[str], statement_date: date
+    def convert_to_dataframe(
+        self, table: Table, table_cols: list[str]
     ) -> pd.DataFrame:
-        df = pd.DataFrame(table, columns=table_cols)
+        df = (
+            pd.DataFrame(table, columns=table_cols)
+            .replace("", np.nan)
+            .dropna(how="all", ignore_index=True)
+            .fillna("")
+        )
 
         if df.empty:
             logging.warning("No transactions found in the extracted table.")
-            return df
 
-        aggregators: dict[str, Any] = {col: "first" for col in df.columns}
-        aggregators["payee"] = list
+        return df
+
+    def process_dataframe(
+        self, df: pd.DataFrame, statement_date: date
+    ) -> pd.DataFrame:
+        # Drop previous balance information - begin with first transaction
+        df = drop_until(
+            df, lambda df: (df["post_date"] != "") | (df["trans_date"] != "")
+        )
+        # Drop footer information
+        df = take_until(
+            df,
+            lambda df: df.apply(
+                lambda x: "".join(x).replace(" ", ""), axis=1
+            ).str.contains(r"\*Forcreditcardtransactionseffectedincurrencies"),
+        )
 
         # Merge rows with same transaction
         df = (
             df.groupby(
                 ((df["post_date"] != "") | (df["trans_date"] != "")).cumsum()
             )
-            .agg(aggregators)
+            .agg({col: "first" for col in df.columns} | {"payee": list})
             .reset_index(drop=True)
         )
 
+        # Populate memo field
         df["memo"] = df.apply(
             lambda x: self.create_memo(
                 x["payee"],
@@ -205,6 +195,7 @@ class HsbcHkCreditCardPlugin(BankHandler):
         )
         df["payee"] = df["payee"].apply(lambda x: x[0])
 
+        # Add year to transaction dates, based on statement date
         df[["post_date", "trans_date"]] = df[
             ["post_date", "trans_date"]
         ].applymap(
@@ -213,6 +204,7 @@ class HsbcHkCreditCardPlugin(BankHandler):
             statement_date=statement_date,
         )
 
+        # Convert hkd_amount column to expected inflow format
         df["hkd_amount"] = df["hkd_amount"].apply(self.add_sign_to_transaction)
 
         return df
@@ -300,3 +292,11 @@ class TableSizeError(Exception):
 
 def build_bank(config):
     return HsbcHkCreditCardPlugin(config)
+
+
+def drop_until(df: pd.DataFrame, predicate, *args, **kwargs) -> pd.DataFrame:
+    return df[predicate(df, *args, **kwargs).idxmax() :].reset_index(drop=True)
+
+
+def take_until(df: pd.DataFrame, predicate, *args, **kwargs) -> pd.DataFrame:
+    return df[: predicate(df, *args, **kwargs).idxmax()].reset_index(drop=True)
